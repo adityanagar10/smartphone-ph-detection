@@ -1,56 +1,71 @@
-import React, {useState} from 'react'
-import {StyleSheet ,Text,View, Image} from 'react-native';
+import React, {useState, useRef} from 'react'
+import {
+    View,
+    StyleSheet,
+    Dimensions,
+    Pressable,
+    Modal,
+    Text,
+    ActivityIndicator,
+    Image
+  } from 'react-native';
 import { Button } from 'react-native-paper';
 import { Spacer } from '../components/spacer.component';
 import * as ImagePicker from 'expo-image-picker'
-// import * as mobilenet from '@tensorflow-models/mobilenet';
-// import { fetch, decodeJpeg } from '@tensorflow/tfjs-react-native';
-// import modelJson from '../../tfjs_model/model.json'
-// import * as tf from '@tensorflow/tfjs';
-
-const modelFunction = async ({uri}) => {
-    // const model = await tf.loadLayersModel(
-    // bundleResourceIO(modelJson));
-    // const response = await fetch(uri, {}, { isBinary: true });
-    // const imageData = await response.arrayBuffer();
-    // const imageTensor = decodeJpeg(imageData);
-    // const prediction = (await model.predict(imageTensor))[0];
-    // console.log(prediction)
-}
-
+import { getModel, convertBase64ToTensor, startPrediction, modelFunction } from '../helpers/tensor-helper';
+import {Camera} from 'expo-camera';
+import { cropPicture } from '../helpers/image-helper';
 export default function HomePage() {
     const [image, setImage] = useState(null)
+    const [result, setResult] = useState('')
+    const cameraRef = useRef();
+    const [isProcessing, setIsProcessing] = useState(false);
+
+      const processImagePrediction = async (base64Image) => {
+        const croppedData = await cropPicture(base64Image, 300);
+        const model = await getModel();
+        const tensor = await convertBase64ToTensor(croppedData.base64);
+        const prediction = await startPrediction(model, tensor);
+        const highestPrediction = prediction.indexOf(
+          Math.max.apply(null, prediction),
+        );
+
+        console.log(highestPrediction)
+        // setPresentedShape(RESULT_MAPPING[highestPrediction]);
+      };
+    
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            base64: true,
             allowsEditing: true,
-            aspect: [4,3],
+            aspect: [1,1],
             quality: 1,
         })
         console.log(result)
         if(!result.cancelled){
             setImage(result.uri)
-            // modelFunction({uri: result.uri})
+            // processImagePrediction(result);
+            modelFunction({uri: result.uri});
         }
     }
 
     return(
         <View style={styles.container}>
            <Spacer position="bottom" size="large"><Text style={styles.headingText}>Welcome to Smartphone pH detector</Text></Spacer>
-           <Spacer position="bottom" size="large"><Text style={styles.headingSubText}>To use the application please select an image from your device or click an image of the sample</Text></Spacer>
+           <Spacer position="bottom" size="large"><Text style={styles.headingSubText}>Please select an image from your device or click an image of the sample to use the application.</Text></Spacer>
            {
             image && <>
             <Image style={styles.image} source={{uri: image}} />
            <Button style={styles.removeButton} color="red" icon="delete" mode="contained" onPress={() => setImage('')}>Remove Selection</Button>
             </>
-            
            }
            <View style={styles.buttonContainer}>
            <Button style={styles.button} icon="filmstrip-box-multiple" color="yellow" mode="contained" onPress={pickImage}>Select from galary</Button>
            <Button style={styles.button} icon="camera" disabled color="green" mode="contained" onPress={() => console.log('Pressed')}>Click an image</Button>
-           
            </View>
+           
            <Text style={styles.footer}>Made by Aditya and Sheel</Text>
         </View>
     )
@@ -61,7 +76,7 @@ const styles = StyleSheet.create({
         flex: 1,
         flexGrow:1, 
         padding: "2%",
-        textAlign: 'center'
+        textAlign: 'center',
     },
     headingText: {
         textAlign: 'center',
@@ -70,7 +85,7 @@ const styles = StyleSheet.create({
     },
     headingSubText: {
         textAlign: 'center',
-        fontSize: 20
+        fontSize: 18
     },
     button: {
         marginTop: 10
@@ -89,5 +104,6 @@ const styles = StyleSheet.create({
         width: 250,
         height: 250,
         marginLeft: '15%',
+        borderRadius: 15,
     }
 })
